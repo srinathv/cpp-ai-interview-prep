@@ -1,0 +1,33 @@
+# Compiled binaries
+*.o
+*.out
+*.exe
+a.out
+
+# Debug symbols
+*.dSYM/
+
+# Build directories
+build/
+bin/
+obj/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
