@@ -1,0 +1,3 @@
+add_executable(dictionary_search_serial dictionary_search.cpp)
+
+install(TARGETS dictionary_search_serial DESTINATION bin)

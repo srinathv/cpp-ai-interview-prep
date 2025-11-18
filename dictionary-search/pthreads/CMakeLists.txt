@@ -1,0 +1,6 @@
+find_package(Threads REQUIRED)
+
+add_executable(dictionary_search_pthreads dictionary_search_pthreads.cpp)
+target_link_libraries(dictionary_search_pthreads PRIVATE Threads::Threads)
+
+install(TARGETS dictionary_search_pthreads DESTINATION bin)
