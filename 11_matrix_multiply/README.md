@@ -27,7 +27,12 @@ This is the most important kernel in deep learning and scientific computing!
 - Thread-level tiling (each thread computes multiple outputs)
 - **Optimization**: Better register usage, reduced shared memory traffic
 
-### Level 4: Production (✓✓✓ ~5-15 TFLOPS)
+### Level 4: PTX Assembly Enhanced (✓✓✓ ~2-4 TFLOPS)
+- Inline PTX for FMA, prefetching, cache control
+- Warp-level primitives
+- Double buffering with async copy (SM 80+)
+
+### Level 5: Production (✓✓✓✓ ~5-15 TFLOPS)
 - Warp-level primitives (tensor cores on modern GPUs)
 - Double buffering, async copies
 - **Note**: This is what cuBLAS/rocBLAS does
@@ -43,22 +48,52 @@ Roofline: min(Peak FLOPS, Bandwidth × Arithmetic Intensity)
 
 ## Files
 
-### CUDA
+### CUDA (GPU)
 ```
 cuda/
 ├── 01_naive_matmul.cu              # Baseline O(1/N) arithmetic intensity
 ├── 02_tiled_matmul.cu              # Shared memory tiling
-├── 03_optimized_matmul.cu          # Thread-level tiling + vectorization
+├── 04_asm_optimized_matmul.cu      # PTX assembly enhancements
+│   ├── PTX FMA (fma.rn.f32)
+│   ├── Prefetching (prefetch.global.L1/L2)
+│   ├── Cache hints (ld.global.nc)
+│   ├── Vector loads (ld.global.v4.f32)
+│   ├── Async copy (cp.async) for SM 80+
+│   └── Thread-tiled with register blocking
 └── matmul_utils.h                  # Common utilities
 ```
 
-### HIP
+### HIP (AMD GPU)
 ```
 hip/
 ├── 01_naive_matmul.hip.cpp         # HIP naive version
 ├── 02_tiled_matmul.hip.cpp         # HIP tiled version
 ├── 03_optimized_matmul.hip.cpp     # HIP optimized version
 └── matmul_utils.h                  # Common utilities
+```
+
+### x86 CPU
+```
+x86/
+├── dense_matmul.cpp                # Dense matrix optimizations
+│   ├── Naive triple loop
+│   ├── Loop reordering (ikj)
+│   ├── Cache blocking/tiling
+│   ├── AVX2 SIMD (8 floats)
+│   ├── AVX2 + blocking + unrolling
+│   ├── Register blocking (6x16)
+│   ├── Inline assembly microkernel
+│   └── AVX-512 (16 floats, if available)
+│
+└── sparse_matmul.cpp               # Sparse matrix optimizations
+    ├── Storage formats: CSR, CSC, BCSR, ELL
+    ├── SpMV implementations
+    │   ├── CSR naive, OpenMP, unrolled
+    │   ├── CSC column-wise
+    │   ├── BCSR 4x4 vectorized
+    │   └── ELL SIMD with gather
+    ├── SpMM (sparse × dense)
+    └── Dense vs Sparse comparison
 ```
 
 ## Building
@@ -68,7 +103,7 @@ hip/
 cd cuda
 nvcc -O3 -arch=sm_80 01_naive_matmul.cu -o naive
 nvcc -O3 -arch=sm_80 02_tiled_matmul.cu -o tiled
-nvcc -O3 -arch=sm_80 03_optimized_matmul.cu -o optimized
+nvcc -O3 -arch=sm_80 04_asm_optimized_matmul.cu -o asm_optimized
 ```
 
 ### HIP
@@ -79,18 +114,29 @@ hipcc -O3 02_tiled_matmul.hip.cpp -o tiled
 hipcc -O3 03_optimized_matmul.hip.cpp -o optimized
 ```
 
+### x86
+```bash
+cd x86
+# Dense matrix multiply
+g++ -O3 -march=native -mavx2 -mfma dense_matmul.cpp -o dense_matmul
+# Add -mavx512f for AVX-512 support
+
+# Sparse matrix multiply
+g++ -O3 -march=native -mavx2 -fopenmp sparse_matmul.cpp -o sparse_matmul
+```
+
 ## Expected Performance
 
-On NVIDIA A100 (19.5 TFLOPS FP32):
+### NVIDIA A100 (19.5 TFLOPS FP32)
 
 | Implementation | GFLOPS | % Peak | Notes |
 |----------------|--------|--------|-------|
 | Naive | ~50 | 0.3% | Memory bound |
 | Tiled | ~500 | 2.5% | Better data reuse |
-| Optimized | ~1500 | 7.7% | Good for learning |
+| PTX Optimized | ~2000 | 10% | Assembly enhancements |
 | cuBLAS | ~15000 | 77% | Production use |
 
-On AMD MI250X (47.9 TFLOPS FP32):
+### AMD MI250X (47.9 TFLOPS FP32)
 
 | Implementation | GFLOPS | % Peak | Notes |
 |----------------|--------|--------|-------|
@@ -98,6 +144,18 @@ On AMD MI250X (47.9 TFLOPS FP32):
 | Tiled | ~600 | 1.25% | Shared memory helps |
 | Optimized | ~2000 | 4.2% | Educational |
 | rocBLAS | ~20000 | 42% | Production use |
+
+### x86 CPU (e.g., Intel i9, ~1 TFLOPS peak)
+
+| Implementation | GFLOPS | Notes |
+|----------------|--------|-------|
+| Naive (ijk) | ~2 | Cache thrashing |
+| Loop reorder (ikj) | ~10 | Better access pattern |
+| Blocked | ~30 | Cache-friendly |
+| AVX2 | ~100 | 8-wide SIMD |
+| AVX2 + Blocked | ~200 | Combined optimizations |
+| Register Blocked | ~300 | Maximum register reuse |
+| MKL/OpenBLAS | ~800 | Production use |
 
 ## Key Concepts
 
@@ -111,41 +169,82 @@ Optimized: Even higher with register blocking
 
 ### Memory Hierarchy
 ```
-Global Memory: ~1 TB/s, high latency
-Shared Memory: ~10 TB/s, low latency  
-Registers:     ~50 TB/s, lowest latency
+GPU:
+  Global Memory: ~1 TB/s, high latency
+  Shared Memory: ~10 TB/s, low latency
+  Registers:     ~50 TB/s, lowest latency
+
+CPU:
+  DRAM:    ~50 GB/s
+  L3:      ~200 GB/s
+  L2:      ~500 GB/s
+  L1:      ~1 TB/s
+  Registers: ~10 TB/s
 ```
 
-### Optimization Strategies
-1. **Tiling**: Break into smaller blocks
-2. **Data Reuse**: Load once, use many times
-3. **Coalescing**: Ensure aligned, contiguous access
-4. **Occupancy**: Balance threads/blocks/shared memory
+### Dense vs Sparse Strategies
+
+| Aspect | Dense | Sparse |
+|--------|-------|--------|
+| Storage | O(n²) | O(nnz) |
+| Access Pattern | Regular | Irregular |
+| SIMD | Easy | Difficult (gathers) |
+| Cache | Streaming | Random |
+| Bottleneck | Compute | Memory |
+| Key Optimization | Blocking | Format selection |
 
 ## Interview Questions
+
+### GPU (CUDA/HIP)
 
 1. **Why is naive GEMM slow?**
    - Poor arithmetic intensity (memory bound)
    - Each element loaded once from global memory
-   
+
 2. **How does tiling help?**
    - Loads tiles into shared memory
    - Threads reuse the cached data
    - Increases arithmetic intensity
 
-3. **What's the theoretical peak?**
-   - Limited by either compute or memory bandwidth
-   - Use roofline model to analyze
+3. **When should you use inline PTX?**
+   - Architecture-specific features (tensor cores, async copy)
+   - Prefetching and cache hints not exposed in CUDA C++
+   - Usually NOT needed - nvcc is very good
 
-4. **Why not write your own GEMM?**
-   - Vendor libraries (cuBLAS/rocBLAS) are highly optimized
-   - Use tensor cores on modern GPUs
-   - But understanding helps optimize custom kernels!
+4. **PTX vs SASS?**
+   - PTX: Virtual ISA, portable across GPU generations
+   - SASS: Native GPU assembly, architecture-specific
+   - PTX compiled to SASS by driver/ptxas
 
-5. **CUDA vs HIP for GEMM?**
-   - Algorithm is identical
-   - Performance depends on hardware
-   - Use vendor libraries in production
+### CPU (x86)
+
+5. **Why does loop order matter?**
+   - Memory access patterns determine cache efficiency
+   - ijk: B has stride-1, but A reloaded for each j
+   - ikj: Both B and C have stride-1, A hoisted
+
+6. **How to choose block size?**
+   - 3 blocks should fit in cache
+   - L1 (32KB): B ~= 52
+   - L2 (256KB): B ~= 147
+   - Typically use 32-128 for L2 blocking
+
+7. **AVX2 vs AVX-512 tradeoffs?**
+   - AVX-512 pros: 2x wider, 2x more registers
+   - AVX-512 cons: May cause frequency throttling
+   - Measure on target hardware!
+
+### Sparse
+
+8. **Why is SpMV memory-bound?**
+   - Arithmetic intensity = 2 FLOP / 12 bytes ≈ 0.17
+   - Cannot reuse data - each element accessed once
+
+9. **How to choose sparse format?**
+   - CSR: General purpose, most common
+   - BCSR: Natural block structure, SIMD-friendly
+   - ELL: GPU-friendly, uniform row lengths
+   - COO: Construction only
 
 ## Real-World Usage
 
@@ -159,6 +258,14 @@ cublasSgemm(handle, ...);
 // HIP
 #include <hipblas.h>
 hipblasSgemm(handle, ...);
+
+// x86 CPU
+#include <mkl.h>
+cblas_sgemm(CblasRowMajor, ...);
+
+// Sparse
+#include <mkl_spblas.h>
+mkl_sparse_s_mv(...);
 ```
 
 ## Next Steps
@@ -168,3 +275,4 @@ After mastering GEMM:
 - Mixed precision (FP16, BF16, TF32)
 - Fused operations (GEMM + activation)
 - Batched GEMM
+- Sparse GEMM libraries (cuSPARSE, MKL Sparse)
