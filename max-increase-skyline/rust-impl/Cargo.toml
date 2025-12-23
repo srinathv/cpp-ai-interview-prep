@@ -1,0 +1,61 @@
+[package]
+name = "max-increase-skyline-rust"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "Rust implementation of Maximum Increase Keeping Skyline with CPU and GPU optimizations"
+license = "MIT"
+
+[dependencies]
+rayon = "1.8"
+
+# Optional GPU dependencies
+rustacuda = { version = "0.1", optional = true }
+rustacuda_core = { version = "0.1", optional = true }
+rustacuda_derive = { version = "0.1", optional = true }
+hip-sys = { version = "0.3", optional = true }
+
+[dev-dependencies]
+criterion = "0.5"
+rand = "0.8"
+
+[features]
+default = []
+cuda = ["rustacuda", "rustacuda_core", "rustacuda_derive"]
+rocm = ["hip-sys"]
+gpu = ["cuda", "rocm"]
+
+[lib]
+name = "skyline"
+path = "src/lib.rs"
+
+[[bin]]
+name = "single_threaded"
+path = "src/bin/single_threaded.rs"
+
+[[bin]]
+name = "parallel"
+path = "src/bin/parallel.rs"
+
+[[bin]]
+name = "cuda_demo"
+path = "src/bin/cuda_demo.rs"
+required-features = ["cuda"]
+
+[[bin]]
+name = "rocm_demo"
+path = "src/bin/rocm_demo.rs"
+required-features = ["rocm"]
+
+[[bench]]
+name = "benchmarks"
+harness = false
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.bench]
+inherits = "release"
