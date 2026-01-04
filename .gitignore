@@ -32,3 +32,9 @@ CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 pbcopy
+# Test binaries
+test_*
+*_bench
+comparison
+dict_search
+max_skyline
