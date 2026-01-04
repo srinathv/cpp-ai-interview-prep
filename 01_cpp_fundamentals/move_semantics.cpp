@@ -184,7 +184,7 @@ void commonPitfalls() {
     // Pitfall 3: std::move doesn't actually move anything
     // It just casts to rvalue reference - the move happens in the constructor/assignment
     std::string s1 = "text";
-    std::move(s1); // Does nothing! Need to actually use the result
+    (void)std::move(s1); // Does nothing! Need to actually use the result
     std::string s2 = std::move(s1); // Now it moves
 }
 
