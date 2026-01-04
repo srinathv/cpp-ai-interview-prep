@@ -213,7 +213,7 @@ public:
     
     // Destructor
     ~String() {
-        std::cout << "String(\"" << data << "\") destroyed\n";
+        std::cout << "String(\"" << (data ? data : "moved") << "\") destroyed\n";
         delete[] data;
     }
     
