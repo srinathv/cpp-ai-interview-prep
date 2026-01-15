@@ -104,7 +104,7 @@ std::shared_ptr<Resource> createSharedResource(const std::string& name) {
 }
 
 // Pattern 11: weak_ptr to avoid circular references
-class Node {
+class Node : public std::enable_shared_from_this<Node> {
     std::string data;
     std::shared_ptr<Node> next;
     std::weak_ptr<Node> prev;  // weak_ptr to break cycle
@@ -187,11 +187,39 @@ void demonstrateGuidelines() {
     tryUseWeakPtr(weak);  // Should report destroyed
 }
 
+void demonstrateWeakPtr() {
+    std::cout << "\n=== weak_ptr for Circular References ===" << std::endl;
+    
+    auto node1 = std::make_shared<Node>("Node1");
+    auto node2 = std::make_shared<Node>("Node2");
+    auto node3 = std::make_shared<Node>("Node3");
+    
+    node1->setNext(node2);
+    node2->setNext(node3);
+    
+    std::cout << "\nTraversing forward:" << std::endl;
+    auto current = node1;
+    while (current) {
+        std::cout << "  " << current->getData() << std::endl;
+        current = current->getNext();
+    }
+    
+    std::cout << "\nTraversing backward from node3:" << std::endl;
+    current = node3;
+    while (current) {
+        std::cout << "  " << current->getData() << std::endl;
+        current = current->getPrev();
+    }
+    
+    std::cout << "\nNodes will be destroyed when exiting scope..." << std::endl;
+}
+
 int main() {
     std::cout << "=== SMART POINTER PASSING ===" << std::endl;
     
     uniquePtrInContainers();
     demonstrateGuidelines();
+    demonstrateWeakPtr();
     
     std::cout << "\n=== Program ending ===" << std::endl;
     return 0;
