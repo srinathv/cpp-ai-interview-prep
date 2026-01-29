@@ -41,6 +41,14 @@ struct OnlineSoftmaxState {
     
     // Merge two states with different maxes
     void merge(const OnlineSoftmaxState& other) {
+        // Handle empty states
+        if (other.sum_exp == 0.0f) return;
+        if (sum_exp == 0.0f) {
+            max_val = other.max_val;
+            sum_exp = other.sum_exp;
+            return;
+        }
+        
         if (other.max_val > max_val) {
             // Other has larger max, scale our sum down
             sum_exp = sum_exp * std::exp(max_val - other.max_val) + other.sum_exp;
@@ -53,7 +61,10 @@ struct OnlineSoftmaxState {
     
     // Add a single element
     void add(float x) {
-        if (x > max_val) {
+        if (sum_exp == 0.0f) {
+            max_val = x;
+            sum_exp = 1.0f;
+        } else if (x > max_val) {
             sum_exp = sum_exp * std::exp(max_val - x) + 1.0f;
             max_val = x;
         } else {
@@ -101,7 +112,7 @@ void softmax_online_blocked(const float* input, float* output, int n) {
         for (int block_start = 0; block_start < n; block_start += BLOCK_SIZE) {
             int block_end = std::min(block_start + BLOCK_SIZE, n);
             
-            // Process block with SIMD
+            // Process block
             for (int i = block_start; i < block_end; i++) {
                 local_state.add(input[i]);
             }
@@ -170,13 +181,13 @@ int main() {
     std::cout << "Online Version:\n";
     std::cout << "  First 5: ";
     for (int i = 0; i < 5; i++) std::cout << output1[i] << " ";
-    std::cout << "\n  Sum: " << sum1 << "\n";
+    std::cout << "\n  Sum: " << sum1 << " (should be 1.0)\n";
     std::cout << "  Time: " << (end1 - start1) / 10000 * 1e6 << " us\n\n";
     
     std::cout << "Blocked Version:\n";
     std::cout << "  First 5: ";
     for (int i = 0; i < 5; i++) std::cout << output2[i] << " ";
-    std::cout << "\n  Sum: " << sum2 << "\n";
+    std::cout << "\n  Sum: " << sum2 << " (should be 1.0)\n";
     std::cout << "  Time: " << (end2 - start2) / 10000 * 1e6 << " us\n";
     
     return 0;
