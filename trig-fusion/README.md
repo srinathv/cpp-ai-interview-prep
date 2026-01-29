@@ -1,10 +1,18 @@
 # Trigonometric Function Fusion: cos(x), sin(x), and sum
 
+## Testing Status
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| OpenMP (CPU) | Verified | Tested on macOS aarch64 (Apple Silicon) with g++-13 |
+| CUDA | Not tested | Requires NVIDIA GPU + CUDA toolkit |
+| HIP/ROCm | Not tested | Requires AMD GPU + ROCm stack |
+
 ## Overview
 
 This directory demonstrates kernel fusion optimization for computing:
 - cos(x) for all elements
-- sin(x) for all elements  
+- sin(x) for all elements
 - sum of all elements
 
 ## Mathematical Background
@@ -96,20 +104,20 @@ Benefits:
 
 ## Compilation
 
-### CUDA
+### OpenMP (CPU)
+    g++ -O3 -fopenmp -march=native naive.cpp -o naive
+    g++ -O3 -fopenmp -march=native optimized.cpp -o optimized
+    g++ -O3 -fopenmp -march=native super_optimized.cpp -o super_optimized
+
+### CUDA (requires NVIDIA GPU)
     nvcc -O3 -arch=sm_80 --use_fast_math naive.cu -o naive
     nvcc -O3 -arch=sm_80 --use_fast_math optimized.cu -o optimized
     nvcc -O3 -arch=sm_80 --use_fast_math super_optimized.cu -o super_optimized
 
-### HIP
+### HIP (requires AMD GPU)
     hipcc -O3 --use_fast_math naive.hip -o naive
     hipcc -O3 --use_fast_math optimized.hip -o optimized
     hipcc -O3 --use_fast_math super_optimized.hip -o super_optimized
-
-### OpenMP
-    g++ -O3 -fopenmp -march=native -ffast-math naive.cpp -o naive
-    g++ -O3 -fopenmp -march=native -ffast-math optimized.cpp -o optimized
-    g++ -O3 -fopenmp -march=native -ffast-math super_optimized.cpp -o super_optimized
 
 ## Performance Notes
 

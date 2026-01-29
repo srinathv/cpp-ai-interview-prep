@@ -1,5 +1,13 @@
 # Softmax Optimization for AI/ML
 
+## Testing Status
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| OpenMP (CPU) | Verified | Tested on macOS aarch64 (Apple Silicon) with g++-13 |
+| CUDA | Not tested | Requires NVIDIA GPU + CUDA toolkit |
+| HIP/ROCm | Not tested | Requires AMD GPU + ROCm stack |
+
 ## Mathematical Foundation
 
 ### Standard Softmax Definition
@@ -45,3 +53,36 @@ Online Softmax reduces to 2 passes using incremental updates:
 ### Level 2: Stable - Subtracts max, 3 passes
 ### Level 3: Online/Fused - Single pass max+sum, shuffle reductions
 
+## Directory Structure
+
+    softmax-optimization/
+    ├── README.md
+    ├── cuda/
+    │   ├── naive.cu
+    │   ├── optimized.cu
+    │   └── super_optimized.cu
+    ├── hip/
+    │   ├── naive.hip
+    │   ├── optimized.hip
+    │   └── super_optimized.hip
+    └── openmp/
+        ├── naive.cpp
+        ├── optimized.cpp
+        └── super_optimized.cpp
+
+## Compilation
+
+### OpenMP (CPU)
+    g++ -O3 -fopenmp -march=native naive.cpp -o naive
+    g++ -O3 -fopenmp -march=native optimized.cpp -o optimized
+    g++ -O3 -fopenmp -march=native super_optimized.cpp -o super_optimized
+
+### CUDA (requires NVIDIA GPU)
+    nvcc -O3 -arch=sm_80 naive.cu -o naive
+    nvcc -O3 -arch=sm_80 optimized.cu -o optimized
+    nvcc -O3 -arch=sm_80 super_optimized.cu -o super_optimized
+
+### HIP (requires AMD GPU)
+    hipcc -O3 naive.hip -o naive
+    hipcc -O3 optimized.hip -o optimized
+    hipcc -O3 super_optimized.hip -o super_optimized
