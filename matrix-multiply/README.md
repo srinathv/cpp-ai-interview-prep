@@ -96,6 +96,20 @@ x86/
     └── Dense vs Sparse comparison
 ```
 
+### Python
+```
+python/
+└── matmul.py                       # Python optimization strategies
+    ├── Naive triple loop (pure Python)
+    ├── NumPy (BLAS-optimized)
+    ├── Blocked with NumPy inner ops
+    ├── Numba JIT-compiled
+    │   ├── Naive (single-threaded)
+    │   ├── Parallel (prange)
+    │   └── Blocked parallel
+    └── CuPy GPU (optional)
+```
+
 ## Building
 
 ### CUDA
@@ -123,6 +137,17 @@ g++ -O3 -march=native -mavx2 -mfma dense_matmul.cpp -o dense_matmul
 
 # Sparse matrix multiply
 g++ -O3 -march=native -mavx2 -fopenmp sparse_matmul.cpp -o sparse_matmul
+```
+
+### Python
+```bash
+cd python
+# Install dependencies
+pip install numpy numba
+pip install cupy-cuda12x  # Optional, for GPU
+
+# Run benchmark
+python matmul.py
 ```
 
 ## Expected Performance
@@ -156,6 +181,17 @@ g++ -O3 -march=native -mavx2 -fopenmp sparse_matmul.cpp -o sparse_matmul
 | AVX2 + Blocked | ~200 | Combined optimizations |
 | Register Blocked | ~300 | Maximum register reuse |
 | MKL/OpenBLAS | ~800 | Production use |
+
+### Python
+
+| Implementation | GFLOPS | Notes |
+|----------------|--------|-------|
+| Naive (pure Python) | ~0.001 | Interpreter overhead |
+| NumPy (@) | ~100-500 | BLAS backend |
+| Numba Naive | ~5-20 | JIT single-threaded |
+| Numba Parallel | ~20-100 | JIT multi-threaded |
+| Numba Blocked | ~30-150 | JIT + cache blocking |
+| CuPy (GPU) | ~1000-15000 | cuBLAS backend |
 
 ## Key Concepts
 
@@ -246,6 +282,26 @@ CPU:
    - ELL: GPU-friendly, uniform row lengths
    - COO: Construction only
 
+### Python
+
+10. **Why is pure Python so slow for GEMM?**
+    - Interpreted (bytecode overhead)
+    - Dynamic typing (runtime type checks)
+    - No SIMD vectorization
+    - GIL prevents true parallelism
+
+11. **How does NumPy achieve high performance?**
+    - Calls optimized BLAS libraries (OpenBLAS, MKL)
+    - Written in C/Fortran with SIMD intrinsics
+    - Cache-optimized blocking algorithms
+    - Multi-threaded (OpenMP)
+
+12. **When to use Numba over NumPy?**
+    - Custom algorithms not expressible as NumPy ops
+    - Avoiding temporary arrays in complex expressions
+    - GPU kernels with @cuda.jit
+    - When NumPy's overhead matters (small arrays)
+
 ## Real-World Usage
 
 ```cpp
@@ -266,6 +322,20 @@ cblas_sgemm(CblasRowMajor, ...);
 // Sparse
 #include <mkl_spblas.h>
 mkl_sparse_s_mv(...);
+```
+
+```python
+# Python - always use NumPy/library calls in production:
+import numpy as np
+C = A @ B  # Uses BLAS (OpenBLAS, MKL, or Accelerate)
+
+# GPU with CuPy
+import cupy as cp
+C_gpu = A_gpu @ B_gpu  # Uses cuBLAS
+
+# PyTorch
+import torch
+C = torch.matmul(A, B)  # CPU or GPU depending on tensors
 ```
 
 ## Next Steps
